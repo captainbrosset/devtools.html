@@ -8,9 +8,9 @@
     </head>
     <body>
         <!-- All this code should actually live inside an iframe and this should be called via a toolbox -->
-        <script src="../../globals.js"></script>
-        <script src="build.js"></script>
-        <script>
+        <script type="application/javascript;version=1.8" src="../../globals.js"></script>
+        <script type="application/javascript;version=1.8" src="build.js"></script>
+        <script type="application/javascript;version=1.8">
             var toolbox;
             Toolbox.getWSTarget().then(function(target) {
                 toolbox = new Toolbox.Toolbox(target, "inspector", "bottom");

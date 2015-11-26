@@ -98,19 +98,36 @@ var PanelFactory = {
    */
   get: function(doc, options) {
     // Create the tooltip
-    let panel = doc.createElement("panel");
-    panel.setAttribute("hidden", true);
-    panel.setAttribute("ignorekeys", true);
-    panel.setAttribute("animate", false);
+    let outerEl = doc.createElement("div");
+    outerEl.setAttribute("style", "display:none;position:absolute;");
+    doc.querySelector("body").appendChild(outerEl);
 
-    panel.setAttribute("consumeoutsideclicks",
-                       options.get("consumeOutsideClick"));
-    panel.setAttribute("noautofocus", options.get("noAutoFocus"));
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("level", "top");
-
+    let panel = doc.createElement("div");
     panel.setAttribute("class", "devtools-tooltip theme-tooltip-panel");
-    doc.querySelector("body").appendChild(panel);
+    panel.setAttribute("style", "border:1px solid #ccc;background:#eee;" +
+      "padding:1em;display:flex;justify-content:center;align-items:center;");
+    outerEl.appendChild(panel);
+
+    // XXX: just augment the DOM node with the properties that we would normally
+    // find on the XUL panel object (openPopup, hidePopup, hidden, sizeTo,
+    // state, ...)
+
+    panel.openPopup = (anchor, position, x, y) => {
+      outerEl.style.display = "block";
+      positionElement(outerEl, null, anchor, 200, 200);
+    }
+    panel.hidePopup = () => outerEl.style.display = "none";
+    panel.sizeTo = (w, h) => {
+      outerEl.style.width = w + "px";
+      outerEl.style.height = h + "px";
+    };
+    Object.defineProperty(panel, "hidden", {
+      get: () => outerEl.style.display === "block",
+      set: value => value ? panel.hidePopup() : undefined
+    });
+    Object.defineProperty(panel, "state", {
+      get: () => panel.hidden ? "closed" : "open"
+    });
 
     return panel;
   }
@@ -692,20 +709,19 @@ Tooltip.prototype = {
     }
 
     // Main container
-    let vbox = this.doc.createElement("vbox");
-    vbox.setAttribute("align", "center");
+    let containerEl = this.doc.createElement("div");
 
     // Display the image
-    let image = this.doc.createElement("image");
+    let image = this.doc.createElement("img");
     image.setAttribute("src", imageUrl);
     if (options.maxDim) {
       image.style.maxWidth = options.maxDim + "px";
       image.style.maxHeight = options.maxDim + "px";
     }
-    vbox.appendChild(image);
+    containerEl.appendChild(image);
 
     if (!options.hideDimensionLabel) {
-      let label = this.doc.createElement("label");
+      let label = this.doc.createElement("div");
       label.classList.add("devtools-tooltip-caption");
       label.classList.add("theme-comment");
 
@@ -725,10 +741,10 @@ Tooltip.prototype = {
         };
       }
 
-      vbox.appendChild(label);
+      containerEl.appendChild(label);
     }
 
-    this.content = vbox;
+    this.content = containerEl;
   },
 
   _getImageDimensionLabel: (w, h) => w + " \u00D7 " + h,
@@ -1259,7 +1275,7 @@ EventTooltip.prototype = {
     };
 
     let doc = this._tooltip.doc;
-    let container = doc.createElement("vbox");
+    let container = doc.createElement("div");
     container.setAttribute("id", "devtools-tooltip-events-container");
 
     for (let listener of this._eventListenerInfos) {
@@ -1267,12 +1283,12 @@ EventTooltip.prototype = {
       let level = listener.DOM0 ? "DOM0" : "DOM2";
 
       // Header
-      let header = doc.createElement("hbox");
+      let header = doc.createElement("div");
       header.className = "event-header devtools-toolbar";
       container.appendChild(header);
 
       if (!listener.hide.debugger) {
-        let debuggerIcon = doc.createElement("image");
+        let debuggerIcon = doc.createElement("img");
         debuggerIcon.className = "event-tooltip-debugger-icon";
         debuggerIcon.setAttribute("src", "chrome://devtools/skin/images/tool-debugger.svg");
         let openInDebugger =
@@ -1282,7 +1298,7 @@ EventTooltip.prototype = {
       }
 
       if (!listener.hide.type) {
-        let eventTypeLabel = doc.createElement("label");
+        let eventTypeLabel = doc.createElement("span");
         eventTypeLabel.className = "event-tooltip-event-type";
         eventTypeLabel.setAttribute("value", listener.type);
         eventTypeLabel.setAttribute("tooltiptext", listener.type);
@@ -1290,7 +1306,7 @@ EventTooltip.prototype = {
       }
 
       if (!listener.hide.filename) {
-        let filename = doc.createElement("label");
+        let filename = doc.createElement("span");
         filename.className = "event-tooltip-filename devtools-monospace";
         filename.setAttribute("value", listener.origin);
         filename.setAttribute("tooltiptext", listener.origin);
@@ -1298,17 +1314,17 @@ EventTooltip.prototype = {
         header.appendChild(filename);
       }
 
-      let attributesContainer = doc.createElement("hbox");
+      let attributesContainer = doc.createElement("div");
       attributesContainer.setAttribute("class",
                                        "event-tooltip-attributes-container");
       header.appendChild(attributesContainer);
 
       if (!listener.hide.capturing) {
-        let attributesBox = doc.createElement("box");
+        let attributesBox = doc.createElement("div");
         attributesBox.setAttribute("class", "event-tooltip-attributes-box");
         attributesContainer.appendChild(attributesBox);
 
-        let capturing = doc.createElement("label");
+        let capturing = doc.createElement("span");
         capturing.className = "event-tooltip-attributes";
         capturing.setAttribute("value", phase);
         capturing.setAttribute("tooltiptext", phase);
@@ -1321,7 +1337,7 @@ EventTooltip.prototype = {
           attributesBox.setAttribute("class", "event-tooltip-attributes-box");
           attributesContainer.appendChild(attributesBox);
 
-          let tagBox = doc.createElement("label");
+          let tagBox = doc.createElement("span");
           tagBox.className = "event-tooltip-attributes";
           tagBox.setAttribute("value", tag);
           tagBox.setAttribute("tooltiptext", tag);
@@ -1330,11 +1346,11 @@ EventTooltip.prototype = {
       }
 
       if (!listener.hide.dom0) {
-        let attributesBox = doc.createElement("box");
+        let attributesBox = doc.createElement("div");
         attributesBox.setAttribute("class", "event-tooltip-attributes-box");
         attributesContainer.appendChild(attributesBox);
 
-        let dom0 = doc.createElement("label");
+        let dom0 = doc.createElement("span");
         dom0.className = "event-tooltip-attributes";
         dom0.setAttribute("value", level);
         dom0.setAttribute("tooltiptext", level);
@@ -1342,7 +1358,7 @@ EventTooltip.prototype = {
       }
 
       // Content
-      let content = doc.createElement("box");
+      let content = doc.createElement("div");
       let editor = new Editor(config);
       this._tooltip.eventEditors.set(content, {
         editor: editor,
@@ -1715,3 +1731,92 @@ loader.lazyGetter(L10N.prototype, "strings", () => {
   return Services.strings.createBundle(
     "chrome://devtools/locale/inspector.properties");
 });
+
+/**
+ * Helper function to make a decision about where a tooltip element should go
+ * around an anchor element.
+ */
+function positionElement(element, arrowElement, anchorElement, preferredWidth,
+                         preferredHeight, arrowDirection) {
+  const borderWidth = 0
+  const scrollerWidth = 11;
+  const arrowHeight = 8;
+  const arrowOffset = 10;
+  const borderRadius = 4;
+  const arrowRadius = 6;
+
+  // Skinny tooltips are not pretty, their arrow location is not nice.
+  preferredWidth = Math.max(preferredWidth, 50);
+
+  // Position relative to main DevTools element.
+  const container = document.documentElement;
+  const totalWidth = container.offsetWidth;
+  const totalHeight = container.offsetHeight;
+
+  var anchorBox = anchorElement.getBoundingClientRect();
+  var newElementPosition = { x: 0, y: 0, width: preferredWidth + scrollerWidth, height: preferredHeight };
+
+  var verticalAlignment;
+  var roomAbove = anchorBox.y;
+  var roomBelow = totalHeight - anchorBox.y - anchorBox.height;
+
+  if ((roomAbove > roomBelow) || (arrowDirection === "bottom")) {
+    // Positioning above the anchor.
+    if ((anchorBox.y > newElementPosition.height + arrowHeight + borderRadius) ||
+        (arrowDirection === "bottom")) {
+      newElementPosition.y = anchorBox.y - newElementPosition.height - arrowHeight;
+    } else {
+      newElementPosition.y = borderRadius;
+      newElementPosition.height = anchorBox.y - borderRadius * 2 - arrowHeight;
+      if (newElementPosition.height < preferredHeight) {
+        newElementPosition.y = borderRadius;
+        newElementPosition.height = preferredHeight;
+      }
+    }
+    verticalAlignment = "bottom";
+  } else {
+    // Positioning below the anchor.
+    newElementPosition.y = anchorBox.y + anchorBox.height + arrowHeight;
+    if ((newElementPosition.y + newElementPosition.height + borderRadius >= totalHeight) &&
+        (arrowDirection !== "top")) {
+      newElementPosition.height = totalHeight - borderRadius - newElementPosition.y;
+      if (newElementPosition.height < preferredHeight) {
+        newElementPosition.y = totalHeight - preferredHeight - borderRadius;
+        newElementPosition.height = preferredHeight;
+      }
+    }
+    // Align arrow.
+    verticalAlignment = "top";
+  }
+
+  var horizontalAlignment;
+  arrowElement && arrowElement.removeAttribute("style");
+  if (anchorBox.x + newElementPosition.width < totalWidth) {
+    newElementPosition.x = Math.max(borderRadius, anchorBox.x - borderRadius - arrowOffset);
+    horizontalAlignment = "left";
+    if (arrowElement) arrowElement.style.left = arrowOffset + "px";
+  } else if (newElementPosition.width + borderRadius * 2 < totalWidth) {
+    newElementPosition.x = totalWidth - newElementPosition.width - borderRadius - 2 * borderWidth;
+    horizontalAlignment = "right";
+    // Position arrow accurately.
+    var arrowRightPosition = Math.max(0, totalWidth - anchorBox.x - anchorBox.width - borderRadius - arrowOffset);
+    arrowRightPosition += anchorBox.width / 2;
+    arrowRightPosition = Math.min(arrowRightPosition, newElementPosition.width - borderRadius - arrowOffset);
+    if (arrowElement) arrowElement.style.right = arrowRightPosition + "px";
+  } else {
+    newElementPosition.x = borderRadius;
+    newElementPosition.width = totalWidth - borderRadius * 2;
+    newElementPosition.height += scrollerWidth;
+    horizontalAlignment = "left";
+    if (verticalAlignment === "bottom")
+        newElementPosition.y -= scrollerWidth;
+    // Position arrow accurately.
+    if (arrowElement) arrowElement.style.left = Math.max(0, anchorBox.x - newElementPosition.x - borderRadius - arrowRadius + anchorBox.width / 2) + "px";
+  }
+
+  element.className = verticalAlignment + "-" + horizontalAlignment + "-arrow";
+  element.style.left = newElementPosition.x + "px";
+  element.style.top = newElementPosition.y - borderWidth + "px";
+  element.style.width = newElementPosition.width + borderWidth * 2 + "px";
+  element.style.height = newElementPosition.height + borderWidth * 2 + "px";
+}
